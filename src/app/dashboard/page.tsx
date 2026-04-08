@@ -1,13 +1,7 @@
-import { prisma } from "@/lib/prisma";
-
 async function getStats() {
-  const [warehouses, products, orders, shipments] = await Promise.all([
-    prisma.warehouse.count(),
-    prisma.product.count(),
-    prisma.order.count(),
-    prisma.shipment.count(),
-  ]);
-  return { warehouses, products, orders, shipments };
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+  const res = await fetch(`${backendUrl}/api/stats`, { cache: "no-store" });
+  return res.json();
 }
 
 export default async function DashboardPage() {

@@ -11,6 +11,18 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:///./dev.db
+    volumes:
+      - ./dev.db:/app/dev.db
+    depends_on:
+      - db
+
   app:
     build: .
     restart: unless-stopped
@@ -18,8 +30,10 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: postgres://octaship:octaship@db:5432/octaship
+      BACKEND_URL: http://backend:8000
     depends_on:
       - db
+      - backend
 
 volumes:
   pgdata:
