@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: octaship
+      POSTGRES_PASSWORD: octaship
+      POSTGRES_DB: octaship
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://octaship:octaship@db:5432/octaship
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

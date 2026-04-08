@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OctaShip
 
-## Getting Started
+Logistics management platform built with Next.js 14, Prisma, and Tailwind CSS.
 
-First, run the development server:
+## Local Setup
+
+### Prerequisites
+
+- Node.js 20+
+- npm
+
+### Quick Start (SQLite)
 
 ```bash
+# Install dependencies
+npm install
+
+# Copy environment variables
+cp .env.example .env
+
+# Run database migration
+npx prisma migrate dev
+
+# Seed sample data
+npx prisma db seed
+
+# Start dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000/dashboard to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Docker Compose (PostgreSQL)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Start PostgreSQL + app
+docker compose up -d
 
-## Learn More
+# Run migrations against the Postgres container
+DATABASE_URL="postgres://octaship:octaship@localhost:5432/octaship" npx prisma migrate deploy
+```
 
-To learn more about Next.js, take a look at the following resources:
+App available at http://localhost:3000.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+  app/
+    api/          # REST API routes (warehouses, products, inventory, orders, shipments)
+    dashboard/    # Dashboard UI pages
+  components/     # Shared React components
+  generated/      # Prisma generated client
+  lib/            # Utilities (prisma client singleton)
+prisma/
+  schema.prisma   # Database schema
+  seed.ts         # Sample data seeder
+  migrations/     # Database migrations
+```
 
-## Deploy on Vercel
+## API Endpoints
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Resource   | List/Create         | Get/Update              |
+|------------|---------------------|-------------------------|
+| Warehouses | GET/POST /api/warehouses | GET/PATCH /api/warehouses/:id |
+| Products   | GET/POST /api/products   | GET/PATCH /api/products/:id   |
+| Inventory  | GET/POST /api/inventory  | GET/PATCH /api/inventory/:id  |
+| Orders     | GET/POST /api/orders     | GET/PATCH /api/orders/:id     |
+| Shipments  | GET/POST /api/shipments  | GET/PATCH /api/shipments/:id  |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+All list endpoints support `?page=1&limit=20` pagination.
