@@ -18,9 +18,6 @@
     "react": "^18",
     "react-dom": "^18"
   },
-  "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
-  },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",

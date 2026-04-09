@@ -9,7 +9,7 @@ Logistics management platform built with Next.js 14, Prisma, and Tailwind CSS.
 - Node.js 20+
 - npm
 
-### Quick Start (SQLite)
+### Quick Start
 
 ```bash
 # Install dependencies
@@ -17,6 +17,9 @@ npm install
 
 # Copy environment variables
 cp .env.example .env
+
+# Start PostgreSQL via Docker Compose
+docker compose up -d db
 
 # Run database migration
 npx prisma migrate dev
@@ -30,14 +33,14 @@ npm run dev
 
 Open http://localhost:3000/dashboard to see the app.
 
-### Docker Compose (PostgreSQL)
+### Docker Compose (full stack)
 
 ```bash
 # Start PostgreSQL + app
 docker compose up -d
 
 # Run migrations against the Postgres container
-DATABASE_URL="postgres://octaship:octaship@localhost:5432/octaship" npx prisma migrate deploy
+npx prisma migrate deploy
 ```
 
 App available at http://localhost:3000.
