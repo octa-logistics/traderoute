@@ -24,7 +24,7 @@ interface PurchaseDetail {
 
 export default async function PurchaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const deal = await apiFetch<PurchaseDetail | null>(`/api/purchases/${id}`, null);
+  const deal = await apiFetch<PurchaseDetail | null>(`/api/purchase-deals/${id}`, null);
 
   if (!deal) return notFound();
 

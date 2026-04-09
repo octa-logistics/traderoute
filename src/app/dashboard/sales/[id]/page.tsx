@@ -16,14 +16,10 @@ interface SaleDetail {
       name: string;
       sku: string | null;
       status: string;
-      totalCost: number;
+      allocatedPurchaseCost: number;
+      allocatedFees: number;
     };
-    margin: number;
   }>;
-  totalRevenue: number;
-  totalCost: number;
-  totalMargin: number;
-  marginPercent: number;
   createdAt: string;
 }
 
@@ -32,6 +28,11 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
   const sale = await apiFetch<SaleDetail | null>(`/api/sales/${id}`, null);
 
   if (!sale) return notFound();
+
+  const totalRevenue = sale.lineItems.reduce((sum, li) => sum + li.salePrice, 0);
+  const totalCost = sale.lineItems.reduce((sum, li) => sum + li.item.allocatedPurchaseCost + li.item.allocatedFees, 0);
+  const totalMargin = totalRevenue - totalCost;
+  const marginPercent = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
 
   return (
     <div>
@@ -44,9 +45,9 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
           <p className="text-sm text-slate-500 mt-0.5">{formatDate(sale.date)}</p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-slate-900">{formatCurrency(sale.totalRevenue)}</p>
-          <p className={`text-sm font-medium ${sale.totalMargin >= 0 ? "text-green-600" : "text-red-600"}`}>
-            {sale.totalMargin >= 0 ? "+" : ""}{formatCurrency(sale.totalMargin)} ({sale.marginPercent.toFixed(1)}%)
+          <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalRevenue)}</p>
+          <p className={`text-sm font-medium ${totalMargin >= 0 ? "text-green-600" : "text-red-600"}`}>
+            {totalMargin >= 0 ? "+" : ""}{formatCurrency(totalMargin)} ({marginPercent.toFixed(1)}%)
           </p>
         </div>
       </div>
@@ -55,16 +56,16 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <p className="text-sm text-slate-500">Revenue</p>
-          <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(sale.totalRevenue)}</p>
+          <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(totalRevenue)}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-sm text-slate-500">Total Cost</p>
-          <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(sale.totalCost)}</p>
+          <p className="text-sm text-slate-500">Est. Cost</p>
+          <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(totalCost)}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-sm text-slate-500">Net Margin</p>
-          <p className={`text-xl font-bold mt-1 ${sale.totalMargin >= 0 ? "text-green-600" : "text-red-600"}`}>
-            {sale.totalMargin >= 0 ? "+" : ""}{formatCurrency(sale.totalMargin)}
+          <p className="text-sm text-slate-500">Est. Margin</p>
+          <p className={`text-xl font-bold mt-1 ${totalMargin >= 0 ? "text-green-600" : "text-red-600"}`}>
+            {totalMargin >= 0 ? "+" : ""}{formatCurrency(totalMargin)}
           </p>
         </div>
       </div>
@@ -85,29 +86,33 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
           <thead className="bg-slate-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Item</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Cost</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Cost Basis</th>
               <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Sale Price</th>
               <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Margin</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {sale.lineItems.map((li) => (
-              <tr key={li.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3">
-                  <Link href={`/dashboard/items/${li.item.id}`} className="text-sm font-medium text-slate-900 hover:text-slate-700">
-                    {li.item.name}
-                  </Link>
-                  {li.item.sku && <p className="text-xs text-slate-400">{li.item.sku}</p>}
-                </td>
-                <td className="px-4 py-3 text-right text-sm text-slate-600">{formatCurrency(li.item.totalCost)}</td>
-                <td className="px-4 py-3 text-right text-sm text-slate-900">{formatCurrency(li.salePrice)}</td>
-                <td className="px-4 py-3 text-right">
-                  <span className={`text-sm font-medium ${li.margin >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    {li.margin >= 0 ? "+" : ""}{formatCurrency(li.margin)}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {sale.lineItems.map((li) => {
+              const itemCost = li.item.allocatedPurchaseCost + li.item.allocatedFees;
+              const margin = li.salePrice - itemCost;
+              return (
+                <tr key={li.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3">
+                    <Link href={`/dashboard/items/${li.item.id}`} className="text-sm font-medium text-slate-900 hover:text-slate-700">
+                      {li.item.name}
+                    </Link>
+                    {li.item.sku && <p className="text-xs text-slate-400">{li.item.sku}</p>}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-slate-600">{formatCurrency(itemCost)}</td>
+                  <td className="px-4 py-3 text-right text-sm text-slate-900">{formatCurrency(li.salePrice)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`text-sm font-medium ${margin >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {margin >= 0 ? "+" : ""}{formatCurrency(margin)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

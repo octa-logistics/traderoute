@@ -1,19 +1,25 @@
-import { apiFetch } from "@/lib/fetch";
+"use client";
+
+import { useState, useEffect } from "react";
 import { PageHeader, Table, formatCurrency, formatDate, EmptyState } from "@/components/ui";
 import Link from "next/link";
 
-interface PurchaseListEntry {
+interface PurchaseDeal {
   id: string;
   vendor: { name: string };
   date: string;
   totalPrice: number;
   fees: number;
   taxes: number;
-  _count: { items: number };
+  items: Array<{ id: string }>;
 }
 
-export default async function PurchasesPage() {
-  const purchases = await apiFetch<PurchaseListEntry[]>("/api/purchases", []);
+export default function PurchasesPage() {
+  const [purchases, setPurchases] = useState<PurchaseDeal[]>([]);
+
+  useEffect(() => {
+    fetch("/api/purchase-deals").then((r) => r.ok ? r.json() : []).then(setPurchases).catch(() => {});
+  }, []);
 
   return (
     <div>
@@ -41,7 +47,7 @@ export default async function PurchasesPage() {
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{formatDate(p.date)}</td>
-                <td className="px-4 py-3 text-sm text-slate-600">{p._count.items}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{p.items.length}</td>
                 <td className="px-4 py-3 text-sm text-slate-900">{formatCurrency(p.totalPrice)}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{formatCurrency(p.fees)}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{formatCurrency(p.taxes)}</td>

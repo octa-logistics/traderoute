@@ -1,20 +1,28 @@
-import { apiFetch } from "@/lib/fetch";
+"use client";
+
+import { useState, useEffect } from "react";
 import { PageHeader, Table, formatCurrency, formatDate, EmptyState } from "@/components/ui";
 import Link from "next/link";
 
-interface SaleListEntry {
+interface SaleEntry {
   id: string;
   customer: { name: string };
   date: string;
-  totalRevenue: number;
-  totalCost: number;
-  margin: number;
-  marginPercent: number;
-  _count: { lineItems: number };
+  lineItems: Array<{
+    salePrice: number;
+    item: {
+      allocatedPurchaseCost: number;
+      allocatedFees: number;
+    };
+  }>;
 }
 
-export default async function SalesPage() {
-  const sales = await apiFetch<SaleListEntry[]>("/api/sales", []);
+export default function SalesPage() {
+  const [sales, setSales] = useState<SaleEntry[]>([]);
+
+  useEffect(() => {
+    fetch("/api/sales").then((r) => r.ok ? r.json() : []).then(setSales).catch(() => {});
+  }, []);
 
   return (
     <div>
@@ -31,30 +39,30 @@ export default async function SalesPage() {
           action={{ label: "Record a Sale", href: "/dashboard/sales/new" }}
         />
       ) : (
-        <Table headers={["Customer", "Date", "Items", "Revenue", "Cost", "Margin", "Margin %"]}>
-          {sales.map((s) => (
-            <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-              <td className="px-4 py-3">
-                <Link href={`/dashboard/sales/${s.id}`} className="text-sm font-medium text-slate-900 hover:text-slate-700">
-                  {s.customer.name}
-                </Link>
-              </td>
-              <td className="px-4 py-3 text-sm text-slate-600">{formatDate(s.date)}</td>
-              <td className="px-4 py-3 text-sm text-slate-600">{s._count.lineItems}</td>
-              <td className="px-4 py-3 text-sm text-slate-900">{formatCurrency(s.totalRevenue)}</td>
-              <td className="px-4 py-3 text-sm text-slate-600">{formatCurrency(s.totalCost)}</td>
-              <td className="px-4 py-3">
-                <span className={`text-sm font-medium ${s.margin >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {s.margin >= 0 ? "+" : ""}{formatCurrency(s.margin)}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <span className={`text-sm font-medium ${s.marginPercent >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {s.marginPercent.toFixed(1)}%
-                </span>
-              </td>
-            </tr>
-          ))}
+        <Table headers={["Customer", "Date", "Items", "Revenue", "Est. Cost", "Est. Margin"]}>
+          {sales.map((s) => {
+            const totalRevenue = s.lineItems.reduce((sum, li) => sum + li.salePrice, 0);
+            const totalCost = s.lineItems.reduce((sum, li) => sum + li.item.allocatedPurchaseCost + li.item.allocatedFees, 0);
+            const margin = totalRevenue - totalCost;
+            return (
+              <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                <td className="px-4 py-3">
+                  <Link href={`/dashboard/sales/${s.id}`} className="text-sm font-medium text-slate-900 hover:text-slate-700">
+                    {s.customer.name}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-600">{formatDate(s.date)}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{s.lineItems.length}</td>
+                <td className="px-4 py-3 text-sm text-slate-900">{formatCurrency(totalRevenue)}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{formatCurrency(totalCost)}</td>
+                <td className="px-4 py-3">
+                  <span className={`text-sm font-medium ${margin >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {margin >= 0 ? "+" : ""}{formatCurrency(margin)}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
         </Table>
       )}
     </div>

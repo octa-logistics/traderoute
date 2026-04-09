@@ -1,5 +1,4 @@
-import { apiFetch } from "@/lib/fetch";
-import { StatusBadge, formatCurrency, formatDate } from "@/components/ui";
+import { formatCurrency, formatDate, StatusBadge } from "@/components/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -12,36 +11,53 @@ interface ItemDetail {
   category: { id: string; name: string } | null;
   storageLocation: { id: string; name: string } | null;
   purchaseDeal: { id: string; vendor: { name: string }; date: string } | null;
-  allocatedPurchaseCost: number;
-  allocatedFees: number;
-  processingCost: number;
-  financingInterest: number;
-  daysHeld: number;
-  totalCost: number;
-  saleLineItem: { salePrice: number; sale: { id: string; customer: { name: string }; date: string } } | null;
-  margin: number | null;
+  saleLineItem: { salePrice: number; saleId: string } | null;
   processingLogs: Array<{
     id: string;
     description: string;
     cost: number;
     date: string;
   }>;
+  costs: {
+    allocatedPurchaseCost: number;
+    allocatedFees: number;
+    processingCost: number;
+    costBeforeInterest: number;
+    daysHeld: number;
+    financingInterest: number;
+    totalCost: number;
+    salePrice: number | null;
+    margin: number | null;
+  };
   createdAt: string;
   updatedAt: string;
 }
 
+async function getItem(id: string): Promise<ItemDetail | null> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const res = await fetch(`${baseUrl}/api/items/${id}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const item = await apiFetch<ItemDetail | null>(`/api/items/${id}`, null);
+  const item = await getItem(id);
 
   if (!item) return notFound();
 
+  const { costs } = item;
+
   const costBreakdown = [
-    { label: "Purchase Cost", value: item.allocatedPurchaseCost },
-    { label: "Allocated Fees", value: item.allocatedFees },
-    { label: "Processing Costs", value: item.processingCost },
-    { label: "Financing Interest", value: item.financingInterest, highlight: true },
-    { label: "Total Cost", value: item.totalCost, bold: true },
+    { label: "Purchase Cost", value: costs.allocatedPurchaseCost },
+    { label: "Allocated Fees", value: costs.allocatedFees },
+    { label: "Processing Costs", value: costs.processingCost },
+    { label: "Financing Interest", value: costs.financingInterest, highlight: true },
+    { label: "Total Cost", value: costs.totalCost, bold: true },
   ];
 
   const statusSteps = ["ACQUIRED", "PROCESSING", "LISTED", "SOLD"];
@@ -104,16 +120,16 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
                 </span>
               </div>
             ))}
-            {item.saleLineItem && (
+            {costs.salePrice !== null && (
               <>
                 <div className="flex justify-between items-center pt-3 border-t border-slate-200">
                   <span className="text-sm text-slate-600">Sale Price</span>
-                  <span className="text-sm text-slate-900">{formatCurrency(item.saleLineItem.salePrice)}</span>
+                  <span className="text-sm text-slate-900">{formatCurrency(costs.salePrice)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-slate-900">Margin</span>
-                  <span className={`text-sm font-bold ${(item.margin ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    {(item.margin ?? 0) >= 0 ? "+" : ""}{formatCurrency(item.margin ?? 0)}
+                  <span className={`text-sm font-bold ${(costs.margin ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {(costs.margin ?? 0) >= 0 ? "+" : ""}{formatCurrency(costs.margin ?? 0)}
                   </span>
                 </div>
               </>
@@ -135,7 +151,7 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
             </div>
             <div className="flex justify-between">
               <dt className="text-sm text-slate-500">Days Held</dt>
-              <dd className="text-sm text-slate-900">{item.daysHeld} days</dd>
+              <dd className="text-sm text-slate-900">{costs.daysHeld} days</dd>
             </div>
             {item.purchaseDeal && (
               <div className="flex justify-between">
@@ -143,16 +159,6 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
                 <dd className="text-sm">
                   <Link href={`/dashboard/purchases/${item.purchaseDeal.id}`} className="text-slate-900 hover:text-slate-700 underline">
                     {item.purchaseDeal.vendor.name} ({formatDate(item.purchaseDeal.date)})
-                  </Link>
-                </dd>
-              </div>
-            )}
-            {item.saleLineItem && (
-              <div className="flex justify-between">
-                <dt className="text-sm text-slate-500">Sold To</dt>
-                <dd className="text-sm">
-                  <Link href={`/dashboard/sales/${item.saleLineItem.sale.id}`} className="text-slate-900 hover:text-slate-700 underline">
-                    {item.saleLineItem.sale.customer.name} ({formatDate(item.saleLineItem.sale.date)})
                   </Link>
                 </dd>
               </div>

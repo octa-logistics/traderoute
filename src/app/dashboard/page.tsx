@@ -1,49 +1,49 @@
-import { apiFetch } from "@/lib/fetch";
-import { StatCard, formatCurrency, formatDate, StatusBadge } from "@/components/ui";
+import { StatCard, formatCurrency } from "@/components/ui";
 import Link from "next/link";
 
 interface DashboardData {
   totalItems: number;
-  itemsInStock: number;
-  totalRevenue: number;
-  overallMarginPercent: number;
+  totalInventoryItems: number;
+  totalSoldItems: number;
   totalInventoryValue: number;
-  recentPurchases: Array<{
-    id: string;
-    vendor: { name: string };
-    date: string;
-    totalPrice: number;
-    _count: { items: number };
-  }>;
-  recentSales: Array<{
-    id: string;
-    customer: { name: string };
-    date: string;
-    lineItems: Array<{ salePrice: number }>;
-  }>;
-  itemsNeedingAttention: Array<{
-    id: string;
+  totalSoldRevenue: number;
+  totalSoldCost: number;
+  overallMarginPct: number;
+  topCategoriesByMargin: Array<{
+    categoryId: string;
     name: string;
-    status: string;
-    daysHeld: number;
-    financingInterest: number;
-    totalCost: number;
+    revenue: number;
+    cost: number;
+    margin: number;
+    marginPct: number;
   }>;
 }
 
 const defaultStats: DashboardData = {
   totalItems: 0,
-  itemsInStock: 0,
-  totalRevenue: 0,
-  overallMarginPercent: 0,
+  totalInventoryItems: 0,
+  totalSoldItems: 0,
   totalInventoryValue: 0,
-  recentPurchases: [],
-  recentSales: [],
-  itemsNeedingAttention: [],
+  totalSoldRevenue: 0,
+  totalSoldCost: 0,
+  overallMarginPct: 0,
+  topCategoriesByMargin: [],
 };
 
+async function getStats(): Promise<DashboardData> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const res = await fetch(`${baseUrl}/api/dashboard/stats`, { cache: "no-store" });
+    if (!res.ok) return defaultStats;
+    return res.json();
+  } catch {
+    return defaultStats;
+  }
+}
+
 export default async function DashboardPage() {
-  const stats = await apiFetch<DashboardData>("/api/dashboard/stats", defaultStats);
+  const stats = await getStats();
+  const totalMargin = stats.totalSoldRevenue - stats.totalSoldCost;
 
   return (
     <div>
@@ -55,118 +55,103 @@ export default async function DashboardPage() {
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
-          label="Total Inventory Value"
+          label="Inventory Value"
           value={formatCurrency(stats.totalInventoryValue)}
-          subtext={`${stats.itemsInStock} items in stock`}
+          subtext={`${stats.totalInventoryItems} items in stock`}
           href="/dashboard/items"
         />
         <StatCard
           label="Items Tracked"
           value={stats.totalItems}
-          subtext="All time"
+          subtext={`${stats.totalSoldItems} sold`}
           href="/dashboard/items"
         />
         <StatCard
           label="Total Revenue"
-          value={formatCurrency(stats.totalRevenue)}
+          value={formatCurrency(stats.totalSoldRevenue)}
           subtext="From completed sales"
           href="/dashboard/sales"
         />
         <StatCard
           label="Overall Margin"
-          value={`${stats.overallMarginPercent.toFixed(1)}%`}
-          subtext={stats.overallMarginPercent >= 0 ? "Profitable" : "Loss"}
+          value={`${stats.overallMarginPct.toFixed(1)}%`}
+          subtext={`${formatCurrency(totalMargin)} net profit`}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Recent Purchases */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Category Margins */}
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-900">Recent Purchases</h2>
-            <Link href="/dashboard/purchases" className="text-xs text-slate-500 hover:text-slate-700">View all</Link>
+            <h2 className="text-sm font-semibold text-slate-900">Margin by Category</h2>
+            <Link href="/dashboard/categories" className="text-xs text-slate-500 hover:text-slate-700">View all</Link>
           </div>
-          {stats.recentPurchases.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4 text-center">No purchases yet</p>
+          {stats.topCategoriesByMargin.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 text-center">No sales data yet</p>
           ) : (
             <div className="space-y-3">
-              {stats.recentPurchases.map((p) => (
-                <Link key={p.id} href={`/dashboard/purchases/${p.id}`}
-                  className="flex items-center justify-between py-2 hover:bg-slate-50 -mx-2 px-2 rounded-lg transition-colors">
+              {stats.topCategoriesByMargin.map((cat) => (
+                <div key={cat.categoryId} className="flex items-center justify-between py-2">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{p.vendor.name}</p>
-                    <p className="text-xs text-slate-500">{formatDate(p.date)} &middot; {p._count.items} items</p>
+                    <p className="text-sm font-medium text-slate-900">{cat.name}</p>
+                    <p className="text-xs text-slate-500">Revenue: {formatCurrency(cat.revenue)}</p>
                   </div>
-                  <p className="text-sm font-medium text-slate-900">{formatCurrency(p.totalPrice)}</p>
-                </Link>
+                  <div className="text-right">
+                    <p className={`text-sm font-medium ${cat.margin >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {cat.margin >= 0 ? "+" : ""}{formatCurrency(cat.margin)}
+                    </p>
+                    <p className={`text-xs ${cat.marginPct >= 0 ? "text-green-500" : "text-red-500"}`}>
+                      {cat.marginPct.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Recent Sales */}
+        {/* Quick Actions */}
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-900">Recent Sales</h2>
-            <Link href="/dashboard/sales" className="text-xs text-slate-500 hover:text-slate-700">View all</Link>
+          <h2 className="text-sm font-semibold text-slate-900 mb-4">Quick Actions</h2>
+          <div className="space-y-2">
+            <Link href="/dashboard/purchases/new"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100">
+              <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-blue-600">
+                  <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900">Record Purchase</p>
+                <p className="text-xs text-slate-500">Add items from a new deal</p>
+              </div>
+            </Link>
+            <Link href="/dashboard/sales/new"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100">
+              <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-green-600">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900">Record Sale</p>
+                <p className="text-xs text-slate-500">Sell items from inventory</p>
+              </div>
+            </Link>
+            <Link href="/dashboard/items"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100">
+              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-600">
+                  <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900">Browse Inventory</p>
+                <p className="text-xs text-slate-500">View all items and costs</p>
+              </div>
+            </Link>
           </div>
-          {stats.recentSales.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4 text-center">No sales yet</p>
-          ) : (
-            <div className="space-y-3">
-              {stats.recentSales.map((s) => {
-                const totalRevenue = s.lineItems.reduce((sum, li) => sum + li.salePrice, 0);
-                return (
-                  <Link key={s.id} href={`/dashboard/sales/${s.id}`}
-                    className="flex items-center justify-between py-2 hover:bg-slate-50 -mx-2 px-2 rounded-lg transition-colors">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{s.customer.name}</p>
-                      <p className="text-xs text-slate-500">{formatDate(s.date)} &middot; {s.lineItems.length} items</p>
-                    </div>
-                    <p className="text-sm font-medium text-green-600">+{formatCurrency(totalRevenue)}</p>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
         </div>
-      </div>
-
-      {/* Items Needing Attention */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <h2 className="text-sm font-semibold text-slate-900 mb-4">Items Needing Attention</h2>
-        {stats.itemsNeedingAttention.length === 0 ? (
-          <p className="text-sm text-slate-400 py-4 text-center">No items need attention right now</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left text-xs font-medium text-slate-500 pb-2">Item</th>
-                  <th className="text-left text-xs font-medium text-slate-500 pb-2">Status</th>
-                  <th className="text-right text-xs font-medium text-slate-500 pb-2">Days Held</th>
-                  <th className="text-right text-xs font-medium text-slate-500 pb-2">Interest Accrued</th>
-                  <th className="text-right text-xs font-medium text-slate-500 pb-2">Total Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.itemsNeedingAttention.map((item) => (
-                  <tr key={item.id} className="border-b border-slate-50">
-                    <td className="py-2">
-                      <Link href={`/dashboard/items/${item.id}`} className="text-sm font-medium text-slate-900 hover:text-slate-700">
-                        {item.name}
-                      </Link>
-                    </td>
-                    <td className="py-2"><StatusBadge status={item.status} /></td>
-                    <td className="py-2 text-right text-sm text-slate-600">{item.daysHeld}d</td>
-                    <td className="py-2 text-right text-sm text-amber-600">{formatCurrency(item.financingInterest)}</td>
-                    <td className="py-2 text-right text-sm font-medium text-slate-900">{formatCurrency(item.totalCost)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );

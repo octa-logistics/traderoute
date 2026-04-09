@@ -46,7 +46,7 @@ export default function NewPurchasePage() {
     setSubmitting(true);
     setError("");
     try {
-      const res = await fetch("/api/purchases", {
+      const res = await fetch("/api/purchase-deals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
