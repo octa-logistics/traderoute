@@ -3,25 +3,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: octaship
-      POSTGRES_PASSWORD: octaship
-      POSTGRES_DB: octaship
+      POSTGRES_USER: traderoute
+      POSTGRES_PASSWORD: traderoute
+      POSTGRES_DB: traderoute
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: sqlite+aiosqlite:///./dev.db
-    volumes:
-      - ./dev.db:/app/dev.db
-    depends_on:
-      - db
 
   app:
     build: .
@@ -29,11 +17,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://octaship:octaship@db:5432/octaship
-      BACKEND_URL: http://backend:8000
+      DATABASE_URL: postgresql://traderoute:traderoute@db:5432/traderoute
     depends_on:
       - db
-      - backend
 
 volumes:
   pgdata:

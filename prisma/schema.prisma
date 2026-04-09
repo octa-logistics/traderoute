@@ -4,130 +4,203 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // --- Core Entities ---
 
-model Warehouse {
-  id        String   @id @default(cuid())
-  name      String
-  address   String
-  city      String
-  state     String
-  zipCode   String
-  country   String   @default("US")
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Organization {
+  id             String   @id @default(cuid())
+  name           String
+  financingRate  Float    @default(0) // annual rate as decimal (e.g. 0.12 = 12%)
+  settings       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  inventory  InventoryItem[]
-  shipments  Shipment[]      @relation("OriginWarehouse")
+  users            User[]
+  vendors          Vendor[]
+  customers        Customer[]
+  categories       Category[]
+  storageLocations StorageLocation[]
+  purchaseDeals    PurchaseDeal[]
+  items            Item[]
+  sales            Sale[]
 
-  @@map("warehouses")
+  @@map("organizations")
 }
 
-model Product {
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  role           UserRole @default(MEMBER)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("users")
+}
+
+model Vendor {
+  id             String   @id @default(cuid())
+  name           String
+  contactEmail   String?
+  contactPhone   String?
+  notes          String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseDeals PurchaseDeal[]
+
+  @@map("vendors")
+}
+
+model Customer {
+  id             String   @id @default(cuid())
+  name           String
+  contactEmail   String?
+  contactPhone   String?
+  notes          String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sales        Sale[]
+
+  @@map("customers")
+}
+
+model Category {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        Item[]
+
+  @@map("categories")
+}
+
+model StorageLocation {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        Item[]
+
+  @@map("storage_locations")
+}
+
+model PurchaseDeal {
+  id             String   @id @default(cuid())
+  vendorId       String
+  organizationId String
+  date           DateTime @default(now())
+  totalPrice     Float
+  fees           Float    @default(0)
+  taxes          Float    @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  vendor       Vendor       @relation(fields: [vendorId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        Item[]
+
+  @@map("purchase_deals")
+}
+
+model Item {
+  id                    String     @id @default(cuid())
+  name                  String
+  description           String?
+  sku                   String?
+  status                ItemStatus @default(ACQUIRED)
+  categoryId            String?
+  storageLocationId     String?
+  purchaseDealId        String?
+  organizationId        String
+  allocatedPurchaseCost Float      @default(0)
+  allocatedFees         Float      @default(0)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  category        Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  storageLocation StorageLocation?  @relation(fields: [storageLocationId], references: [id], onDelete: SetNull)
+  purchaseDeal    PurchaseDeal?     @relation(fields: [purchaseDealId], references: [id], onDelete: SetNull)
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  processingLogs  ItemProcessingLog[]
+  saleLineItem    SaleLineItem?
+
+  @@map("items")
+}
+
+model ItemProcessingLog {
   id          String   @id @default(cuid())
-  sku         String   @unique
-  name        String
-  description String?
-  weight      Float?
-  weightUnit  String   @default("lb")
+  itemId      String
+  description String
+  cost        Float
+  date        DateTime @default(now())
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  inventory  InventoryItem[]
-  orderItems OrderItem[]
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
-  @@map("products")
+  @@map("item_processing_logs")
 }
 
-model InventoryItem {
-  id          String   @id @default(cuid())
-  productId   String
-  warehouseId String
-  quantity    Int      @default(0)
-  reorderPoint Int    @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Sale {
+  id             String   @id @default(cuid())
+  customerId     String
+  organizationId String
+  date           DateTime @default(now())
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  product   Product   @relation(fields: [productId], references: [id])
-  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  customer  Customer       @relation(fields: [customerId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lineItems SaleLineItem[]
 
-  @@unique([productId, warehouseId])
-  @@map("inventory_items")
+  @@map("sales")
 }
 
-model Order {
-  id          String      @id @default(cuid())
-  orderNumber String      @unique
-  status      OrderStatus @default(PENDING)
-  customerName  String
-  customerEmail String
-  shippingAddress String
-  city        String
-  state       String
-  zipCode     String
-  country     String      @default("US")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  items     OrderItem[]
-  shipments Shipment[]
-
-  @@map("orders")
-}
-
-model OrderItem {
+model SaleLineItem {
   id        String @id @default(cuid())
-  orderId   String
-  productId String
-  quantity  Int
-  unitPrice Float
+  saleId    String
+  itemId    String @unique
+  salePrice Float
 
-  order   Order   @relation(fields: [orderId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  item Item @relation(fields: [itemId], references: [id])
 
-  @@map("order_items")
-}
-
-model Shipment {
-  id              String         @id @default(cuid())
-  orderId         String
-  warehouseId     String
-  status          ShipmentStatus @default(PENDING)
-  carrier         String?
-  trackingNumber  String?
-  estimatedDelivery DateTime?
-  shippedAt       DateTime?
-  deliveredAt     DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  order     Order     @relation(fields: [orderId], references: [id])
-  warehouse Warehouse @relation("OriginWarehouse", fields: [warehouseId], references: [id])
-
-  @@map("shipments")
+  @@map("sale_line_items")
 }
 
 // --- Enums ---
 
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
 }
 
-enum ShipmentStatus {
-  PENDING
-  PICKED
-  PACKED
-  SHIPPED
-  IN_TRANSIT
-  DELIVERED
+enum ItemStatus {
+  ACQUIRED
+  PROCESSING
+  LISTED
+  SOLD
   RETURNED
 }
