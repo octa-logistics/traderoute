@@ -39,3 +39,10 @@ next-env.d.ts
 .env
 dev.db
 dev.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/

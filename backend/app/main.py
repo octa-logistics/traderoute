@@ -4,7 +4,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth
+from app.routers import (
+    auth,
+    categories,
+    customers,
+    dashboard,
+    items,
+    purchase_deals,
+    sales,
+    storage_locations,
+    vendors,
+)
 
 
 @asynccontextmanager
@@ -27,6 +37,14 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(vendors.router)
+app.include_router(customers.router)
+app.include_router(categories.router)
+app.include_router(storage_locations.router)
+app.include_router(purchase_deals.router)
+app.include_router(items.router)
+app.include_router(sales.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/api/v1/health")
