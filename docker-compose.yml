@@ -21,5 +21,17 @@ services:
     depends_on:
       - db
 
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      TRADEROUTE_DATABASE_URL: postgresql+asyncpg://traderoute:traderoute@db:5432/traderoute
+      TRADEROUTE_SECRET_KEY: change-me-in-production
+      TRADEROUTE_CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+    depends_on:
+      - db
+
 volumes:
   pgdata:
