@@ -71,6 +71,8 @@ async def create_item(
         .options(
             selectinload(Item.category),
             selectinload(Item.storage_location),
+            selectinload(Item.processing_logs),
+            selectinload(Item.sale_line_item),
         )
     )
     return result.scalar_one()
